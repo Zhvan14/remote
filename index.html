@@ -59,7 +59,7 @@
         if (!ip) return alert("Please enter TV IP");
 
         updateLog("Connecting to TV...");
-        ws = new WebSocket(`wss://${ip}:3000`);
+        ws = new WebSocket(`wss://${ip}:3001`);
 
         ws.onopen = () => {
             updateLog("WebSocket Open. Pairing...");
