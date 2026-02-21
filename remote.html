@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>LG Remote</title>
+    <link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css">
+    <script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
+    <style>
+        body { background-color: #121212; color: white; font-family: 'Segoe UI', sans-serif; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; }
+        .header { color: #E50914; font-size: 24px; font-weight: bold; margin-bottom: 20px; }
+        .nav-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
+        .btn { background: #282828; color: white; border: none; border-radius: 12px; width: 80px; height: 80px; font-size: 20px; font-weight: bold; display: flex; align-items: center; justify-content: center; }
+        .btn:active { background: #404040; transform: scale(0.95); }
+        .center-btn { background: #E50914; }
+        .touchpad { width: 300px; height: 200px; background: #1e1e1e; border: 1px solid #333; border-radius: 15px; display: flex; align-items: center; justify-content: center; color: #555; font-size: 14px; margin-bottom: 20px; touch-action: none; }
+        .bottom-row { display: flex; gap: 20px; }
+        .small-btn { width: 100px; height: 50px; font-size: 16px; }
+    </style>
+</head>
+<body>
+
+    <div class="header">LG WEBOS REMOTE</div>
+
+    <div class="nav-grid">
+        <div></div><button class="btn" id="up">▲</button><div></div>
+        <button class="btn" id="left">◀</button>
+        <button class="btn center-btn" id="click">OK</button>
+        <button class="btn" id="right">▶</button>
+        <div></div><button class="btn" id="down">▼</button><div></div>
+    </div>
+
+    <div class="touchpad" id="pad">TOUCHPAD</div>
+
+    <div class="bottom-row">
+        <button class="btn small-btn" id="home">HOME</button>
+        <button class="btn small-btn" id="back">BACK</button>
+    </div>
+
+    <script type="py">
+        from pyscript import when, window
+        import js
+
+        # NOTE: In a real-world browser scenario, pywebostv cannot 
+        # communicate directly via raw sockets due to browser security.
+        # This PyScript block simulates the logic. 
+        # For actual TV control, this script would send a fetch() 
+        # request to a Python relay server.
+
+        @when("click", "#up")
+        def move_up(event):
+            js.console.log("Command: UP")
+
+        @when("click", "#left")
+        def move_left(event):
+            js.console.log("Command: LEFT")
+
+        @when("click", "#right")
+        def move_right(event):
+            js.console.log("Command: RIGHT")
+
+        @when("click", "#down")
+        def move_down(event):
+            js.console.log("Command: DOWN")
+
+        @when("click", "#click")
+        def press_ok(event):
+            js.console.log("Command: CLICK")
+
+        @when("click", "#home")
+        def go_home(event):
+            js.console.log("Command: HOME")
+
+        @when("click", "#back")
+        def go_back(event):
+            js.console.log("Command: BACK")
+
+        # Mousepad handling
+        last_x = 0
+        last_y = 0
+
+        def on_move(event):
+            global last_x, last_y
+            dx = (event.touches[0].clientX - last_x) * 2
+            dy = (event.touches[0].clientY - last_y) * 2
+            js.console.log(f"Move: {dx}, {dy}")
+            last_x = event.touches[0].clientX
+            last_y = event.touches[0].clientY
+
+        # Attach JS events to Python logic
+        pad = js.document.getElementById("pad")
+        pad.addEventListener("touchmove", js.create_proxy(on_move))
+    </script>
+</body>
+</html>
