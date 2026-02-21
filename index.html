@@ -1,53 +1,118 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Remote</title>
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>LG Remote</title>
     <style>
-        body { background: #121212; color: white; font-family: sans-serif; text-align: center; }
-        .btn { background: #333; color: white; padding: 20px; border-radius: 50%; border: none; font-weight: bold; width: 80px; height: 80px; margin: 10px; }
-        .btn:active { background: #E50914; }
-        #status { color: #888; font-size: 12px; margin-top: 10px; }
+        body { background: #121212; color: #fff; font-family: -apple-system, sans-serif; text-align: center; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }
+        .container { width: 90%; max-width: 400px; }
+        .status-dot { height: 10px; width: 10px; background-color: #ff4444; border-radius: 50%; display: inline-block; margin-right: 5px; }
+        .connected { background-color: #44ff44; }
+        input { background: #222; color: #fff; border: 1px solid #444; padding: 12px; width: 80%; border-radius: 8px; margin-bottom: 20px; text-align: center; font-size: 16px; }
+        .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin: 20px auto; }
+        .btn { background: #1e1e1e; border: 1px solid #333; color: white; padding: 25px; border-radius: 50%; font-weight: bold; font-size: 18px; transition: 0.1s; -webkit-tap-highlight-color: transparent; }
+        .btn:active { background: #E50914; transform: scale(0.95); }
+        .ok-btn { background: #333; border: 2px solid #E50914; }
+        #log { font-size: 12px; color: #888; margin-top: 20px; }
     </style>
 </head>
 <body>
-    <h2>LG Remote</h2>
-    <input type="text" id="ip" value="192.168.1.147" style="padding: 10px; border-radius: 5px; border: none; width: 80%;">
-    <div id="status">Status: Disconnected</div>
-    
-    <div style="margin-top: 20px;">
-        <button class="btn" onclick="send('UP')">UP</button><br>
-        <button class="btn" onclick="send('LEFT')">LEFT</button>
-        <button class="btn" onclick="send('ENTER')" style="background: #E50914;">OK</button>
-        <button class="btn" onclick="send('RIGHT')">RIGHT</button><br>
-        <button class="btn" onclick="send('DOWN')">DOWN</button>
-    </div>
 
-    <script>
-        let ws;
-        function send(key) {
-            const ip = document.getElementById('ip').value;
-            if (!ws || ws.readyState !== WebSocket.OPEN) {
-                document.getElementById('status').innerText = "Connecting...";
-                ws = new WebSocket(`ws://${ip}:3000`);
-                ws.onopen = () => {
-                    document.getElementById('status').innerText = "Status: Connected!";
-                    ws.send(JSON.stringify({type: 'register', payload: {manifest: {permissions: ['CONTROL_INPUT_TEXT']}}}));
-                    // Send command after handshake
-                    setTimeout(() => transmit(key), 300);
-                };
-            } else {
-                transmit(key);
+<div class="container">
+    <h2>LG WebOS Remote</h2>
+    <div><span id="dot" class="status-dot"></span><span id="status">Disconnected</span></div>
+    <br>
+    <input type="text" id="ip" placeholder="TV IP (e.g. 192.168.1.100)">
+
+    <div class="grid">
+        <div></div><button class="btn" onclick="send('UP')">▲</button><div></div>
+        <button class="btn" onclick="send('LEFT')">◀</button>
+        <button class="btn ok-btn" onclick="send('ENTER')">OK</button>
+        <button class="btn" onclick="send('RIGHT')">▶</button>
+        <div></div><button class="btn" onclick="send('DOWN')">▼</button><div></div>
+    </div>
+    
+    <div id="log">Ready to pair</div>
+</div>
+
+<script>
+    let ws;
+    let pairingKey = localStorage.getItem('lg_pairing_key') || null;
+
+    // Auto-fill IP from URL (?ip=192.168.1.x)
+    window.onload = () => {
+        const params = new URLSearchParams(window.location.search);
+        const urlIp = params.get('ip');
+        if (urlIp) {
+            document.getElementById('ip').value = urlIp;
+            updateLog("URL IP found. Ready to connect.");
+        }
+    };
+
+    function updateLog(msg) {
+        document.getElementById('log').innerText = msg;
+    }
+
+    function connect(callback) {
+        const ip = document.getElementById('ip').value;
+        if (!ip) return alert("Please enter TV IP");
+
+        updateLog("Connecting to TV...");
+        ws = new WebSocket(`ws://${ip}:3000`);
+
+        ws.onopen = () => {
+            updateLog("WebSocket Open. Pairing...");
+            document.getElementById('dot').classList.add('connected');
+            document.getElementById('status').innerText = "Connected";
+
+            const handshake = {
+                type: 'register',
+                payload: {
+                    manifest: {
+                        permissions: ['CONTROL_INPUT_TEXT', 'CONTROL_MOUSE_AND_KEYBOARD', 'READ_INSTALLED_APPS']
+                    },
+                    'client-key': pairingKey
+                }
+            };
+            ws.send(JSON.stringify(handshake));
+        };
+
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            if (data.type === 'registered') {
+                pairingKey = data.payload['client-key'];
+                localStorage.setItem('lg_pairing_key', pairingKey);
+                updateLog("Registered! Key saved.");
+                if (callback) callback();
             }
+        };
+
+        ws.onclose = () => {
+            document.getElementById('dot').classList.remove('connected');
+            document.getElementById('status').innerText = "Disconnected";
+            updateLog("Connection closed.");
+        };
+    }
+
+    function send(key) {
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+            connect(() => transmit(key));
+        } else {
+            transmit(key);
         }
-        function transmit(key) {
-            ws.send(JSON.stringify({
-                type: 'request',
-                uri: 'ssap://com.webos.service.tvcommand/browser/sendKeyEvent',
-                payload: {eventName: key}
-            }));
-        }
-    </script>
+    }
+
+    function transmit(key) {
+        const payload = {
+            type: 'request',
+            uri: 'ssap://com.webos.service.tvcommand/browser/sendKeyEvent',
+            payload: { eventName: key }
+        };
+        ws.send(JSON.stringify(payload));
+    }
+</script>
+
 </body>
 </html>
-
+ 
