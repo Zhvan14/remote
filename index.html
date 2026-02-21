@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Remote</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <style>
+        body { background: #121212; color: white; font-family: sans-serif; text-align: center; }
+        .btn { background: #333; color: white; padding: 20px; border-radius: 50%; border: none; font-weight: bold; width: 80px; height: 80px; margin: 10px; }
+        .btn:active { background: #E50914; }
+        #status { color: #888; font-size: 12px; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <h2>LG Remote</h2>
+    <input type="text" id="ip" value="192.168.1.147" style="padding: 10px; border-radius: 5px; border: none; width: 80%;">
+    <div id="status">Status: Disconnected</div>
+    
+    <div style="margin-top: 20px;">
+        <button class="btn" onclick="send('UP')">UP</button><br>
+        <button class="btn" onclick="send('LEFT')">LEFT</button>
+        <button class="btn" onclick="send('ENTER')" style="background: #E50914;">OK</button>
+        <button class="btn" onclick="send('RIGHT')">RIGHT</button><br>
+        <button class="btn" onclick="send('DOWN')">DOWN</button>
+    </div>
+
+    <script>
+        let ws;
+        function send(key) {
+            const ip = document.getElementById('ip').value;
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                document.getElementById('status').innerText = "Connecting...";
+                ws = new WebSocket(`ws://${ip}:3000`);
+                ws.onopen = () => {
+                    document.getElementById('status').innerText = "Status: Connected!";
+                    ws.send(JSON.stringify({type: 'register', payload: {manifest: {permissions: ['CONTROL_INPUT_TEXT']}}}));
+                    // Send command after handshake
+                    setTimeout(() => transmit(key), 300);
+                };
+            } else {
+                transmit(key);
+            }
+        }
+        function transmit(key) {
+            ws.send(JSON.stringify({
+                type: 'request',
+                uri: 'ssap://com.webos.service.tvcommand/browser/sendKeyEvent',
+                payload: {eventName: key}
+            }));
+        }
+    </script>
+</body>
+</html>
+
